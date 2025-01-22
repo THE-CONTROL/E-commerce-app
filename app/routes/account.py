@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Path
 from typing import List
 from sqlalchemy.orm import Session
-from app.core.authDependency import get_current_user
+from app.core.auth_dependency import get_current_user
 from app.data.schemas.auth_schemas import ProtectedUser
 from app.data.utils.database import get_db
 from app.service.account_service import AccountService

@@ -1,8 +1,8 @@
 from fastapi import Depends
 from app.data.schemas.auth_schemas import ProtectedUser, UserCreate
-from app.data.schemas.user_schemas import UpdatePassword, UserBase, UserRead
+from app.data.schemas.user_schemas import UserBase, UserRead
 from app.data.utils.database import get_db
-from app.core.authDependency import get_current_user
+from app.core.auth_dependency import get_current_user
 from app.data.models.user_models import User, UserTier
 from app.routes.base import BaseRouter
 from app.service.user_service import UserService
@@ -41,20 +41,6 @@ class UserRouter(BaseRouter[User, UserCreate, UserBase, UserService]):
                 return self.service_class(session=db).update(
                     id=current_user.id,
                     data=update_data
-                )
-            except Exception as error:
-                raise error
-            
-        @self.router.put("/password", response_model=UserRead)
-        async def change_password(
-            passwords: UpdatePassword,
-            db: Session = Depends(get_db),
-            current_user: ProtectedUser = Depends(get_current_user)
-        ):
-            try:
-                return self.service_class(session=db).change_password(
-                    user_id=current_user.id,
-                    password_data=passwords
                 )
             except Exception as error:
                 raise error

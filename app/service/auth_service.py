@@ -1,8 +1,7 @@
 from fastapi import HTTPException, status
-from typing import Dict
 from sqlalchemy.orm import Session
-from app.core.authHandler import AuthHandler
-from app.core.hashHelper import HashHelper
+from app.core.auth_handler import AuthHandler
+from app.core.hash_helper import HashHelper
 from app.repository.account_repo import AccountRepository
 from app.repository.auth_repo import AuthRepository
 from app.service.base_service import BaseService

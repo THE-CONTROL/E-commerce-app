@@ -2,8 +2,7 @@ from sqlalchemy import TIMESTAMP, Boolean, Column, Integer, String, text, Enum, 
 from sqlalchemy.orm import relationship
 from app.data.utils.database import Base
 import enum
-from datetime import datetime, timezone
-from typing import List
+from datetime import datetime
 
 # Enum for user tiers
 class UserTier(str, enum.Enum):

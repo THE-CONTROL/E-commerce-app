@@ -1,5 +1,4 @@
 from fastapi import Depends
-from app.core.authDependency import get_current_user
 from app.data.schemas.auth_schemas import RefreshRequest, RefreshResponse, TokenResponse, UserCreate, UserLogin
 from app.data.schemas.user_schemas import UserBase
 from app.data.utils.database import get_db

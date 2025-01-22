@@ -4,6 +4,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from app.data.models.user_models import User
 from app.data.models.account_models import Account
+from app.data.models.password_models import PasswordReset
 from app.data.utils.database import Base
 
 from alembic import context

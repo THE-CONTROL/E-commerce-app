@@ -1,7 +1,6 @@
 from typing import Any, Generic, TypeVar, Dict
 from fastapi import HTTPException, status
 from pydantic import BaseModel
-
 from app.repository.base_repo import BaseRepository
 
 

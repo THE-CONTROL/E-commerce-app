@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status
-from typing import List, Dict
+from typing import List
 from sqlalchemy.orm import Session
 from app.service.base_service import BaseService
 from app.data.models.account_models import Account, Currency
@@ -8,6 +8,7 @@ from app.data.schemas.account_schemas import (
     UpdateAccountBalance
 )
 from app.repository.account_repo import AccountRepository
+
 
 class AccountService(BaseService[Account, AccountCreate, AccountRead]):
     def __init__(self, session: Session):

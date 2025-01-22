@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from typing import Generic, TypeVar, Type
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from app.core.authDependency import get_current_user
+from app.core.auth_dependency import get_current_user
 from app.data.utils.database import get_db
 from app.service.base_service import BaseService
 

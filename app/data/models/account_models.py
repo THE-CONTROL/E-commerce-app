@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from app.data.utils.database import Base
 import enum
 from datetime import datetime
-from typing import List
 
 
 # Enum for currencies
