@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.auth_handler import AuthHandler
+from app.data.models.admin_models import AdminType
 from app.data.schemas.auth_schemas import ProtectedUser
 from app.data.utils.database import get_db
 from app.service.user_service import UserService
@@ -36,3 +37,13 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
+        
+async def get_current_superadmin(
+    current_user: ProtectedUser = Depends(get_current_user)
+) -> ProtectedUser:
+    if current_user.type != AdminType.SUPER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin privileges required"
+        )
+    return current_user

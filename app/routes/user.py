@@ -1,6 +1,6 @@
 from fastapi import Depends
 from app.data.schemas.auth_schemas import ProtectedUser, UserCreate
-from app.data.schemas.user_schemas import UserBase, UserRead
+from app.data.schemas.user_schemas import PasscodeResponse, SetPasscode, UserBase, UserRead
 from app.data.utils.database import get_db
 from app.core.auth_dependency import get_current_user
 from app.data.models.user_models import User, UserTier
@@ -21,7 +21,7 @@ class UserRouter(BaseRouter[User, UserCreate, UserBase, UserService]):
         self._register_user_routes()
 
     def _register_user_routes(self):
-        @self.router.get("/get", response_model=UserRead)
+        @self.router.get("/me", response_model=UserRead)
         async def get_current_user_info(
             db: Session = Depends(get_db),
             current_user: ProtectedUser = Depends(get_current_user)
@@ -30,8 +30,32 @@ class UserRouter(BaseRouter[User, UserCreate, UserBase, UserService]):
                 return self.service_class(session=db).get_by_id(id=current_user.id)
             except Exception as error:
                 raise error
+            
+        @self.router.put("/me/passcode/set}", response_model=UserRead)
+        def set_user_passcode(
+            new_passcode: SetPasscode,
+            db: Session = Depends(get_db),
+            current_user: ProtectedUser = Depends(get_current_user)
+        ):
+            """Set user passcode"""
+            try:
+                return self.service_class(session=db).set_passcode(current_user.id, new_passcode)
+            except Exception as error:
+                raise error
+            
+        @self.router.patch("/me/passcode/get}", response_model=PasscodeResponse)
+        def check_user_passcode(
+            passcode_data: SetPasscode,
+            db: Session = Depends(get_db),
+            current_user: ProtectedUser = Depends(get_current_user)
+        ):
+            """Check user passcode"""
+            try:
+                return self.service_class(session=db).check_passcode(current_user.id, passcode_data)
+            except Exception as error:
+                raise error
 
-        @self.router.put("/update", response_model=UserRead)
+        @self.router.put("/me", response_model=UserRead)
         async def update_current_user(
             update_data: UserBase,
             db: Session = Depends(get_db),
@@ -45,7 +69,7 @@ class UserRouter(BaseRouter[User, UserCreate, UserBase, UserService]):
             except Exception as error:
                 raise error
             
-        @self.router.put("/verify", response_model=UserRead)
+        @self.router.put("/me/verify", response_model=UserRead)
         def verify_account(
             db: Session = Depends(get_db),
             current_user: ProtectedUser = Depends(get_current_user)

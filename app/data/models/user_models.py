@@ -2,7 +2,7 @@ from sqlalchemy import TIMESTAMP, Boolean, Column, Integer, String, text, Enum, 
 from sqlalchemy.orm import relationship
 from app.data.utils.database import Base
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Enum for user tiers
 class UserTier(str, enum.Enum):
@@ -24,6 +24,7 @@ class User(Base):
     username = Column(String(50), nullable=False, unique=True, index=True, 
                      comment='Unique username for login')
     password = Column(String(255), nullable=False, comment='Hashed password')
+    passcode = Column(String(255), nullable=True, comment='Hashed password')
     
     # Contact and additional info
     age = Column(Integer, nullable=True, comment='User age')
@@ -47,7 +48,7 @@ class User(Base):
     
     # Account status
     verified = Column(Boolean, default=False, nullable=False,
-                     comment='Email verification status')
+                     comment='User verification status')
     is_active = Column(Boolean, default=True, nullable=False,
                       comment='Account active status')
     
@@ -66,13 +67,14 @@ class User(Base):
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=text('now()'),
-        onupdate=datetime.utcnow,
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
         comment='Last update timestamp'
     )
 
     # Relationships
     accounts = relationship("Account", back_populates="user", cascade="all, delete-orphan")
+    stores = relationship("Store", back_populates="user", cascade="all, delete-orphan")
     
     def repr(self):
         """String representation of the user"""

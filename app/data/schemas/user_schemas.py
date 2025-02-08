@@ -9,19 +9,6 @@ from app.data.schemas.account_schemas import AccountRead
 UsernameStr = Annotated[str, StringConstraints(min_length=3, max_length=50)]
 NINStr = Annotated[str, StringConstraints(min_length=11, max_length=11)]
 BVNStr = Annotated[str, StringConstraints(min_length=11, max_length=11)]
-PasswordStr = Annotated[str, StringConstraints(min_length=8)]
-
-# Password schemas
-class UpdatePassword(BaseModel):
-    password: PasswordStr
-    confirm_password: PasswordStr
-
-    @field_validator("confirm_password")
-    @classmethod
-    def passwords_match(cls, v: str, info) -> str:
-        if v != info.data.get("password"):
-            raise ValueError("Passwords do not match")
-        return v
 
 # User schemas
 class UserBase(BaseModel):
@@ -60,3 +47,11 @@ class UpdateUserTier(BaseModel):
 class UserResponse(BaseModel):
     message: str
     user: UserRead
+    
+class SetPasscode(BaseModel):
+    passcode: str
+    
+class PasscodeResponse(BaseModel):
+    message: str
+    user: UserRead
+    

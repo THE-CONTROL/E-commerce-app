@@ -8,13 +8,13 @@ from app.service.account_service import AccountService
 from app.data.schemas.account_schemas import (
     AccountRead, AccountResponse, UpdateAccountBalance
 )
-
+ 
 class AccountRouter:
     def __init__(self):
         self.router = APIRouter(prefix="/accounts", tags=["accounts"])
-        self._register_routes()
+        self._register_account_routes()
 
-    def _register_routes(self):
+    def _register_account_routes(self):
         @self.router.get("/", response_model=List[AccountRead])
         async def get_user_accounts(
             db: Session = Depends(get_db),

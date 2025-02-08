@@ -13,9 +13,9 @@ class PasswordResetRouter:
             prefix="/auth/password",
             tags=["authentication"]
         )
-        self._register_routes()
+        self._register_password_routes()
 
-    def _register_routes(self):
+    def _register_password_routes(self):
         @self.router.post("/forgot", response_model=PasswordResetResponse)
         async def forgot_password(
             request: ForgotPasswordRequest,

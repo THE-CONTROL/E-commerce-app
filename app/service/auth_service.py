@@ -1,7 +1,9 @@
+from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.auth_handler import AuthHandler
 from app.core.hash_helper import HashHelper
+from app.data.models.admin_models import Admin
 from app.repository.account_repo import AccountRepository
 from app.repository.auth_repo import AuthRepository
 from app.service.base_service import BaseService
@@ -40,7 +42,7 @@ class AuthService(BaseService[User, UserCreate, UserBase]):
         # Create user with hashed password
         user_dict = {
             "username": user_data.username,
-            "password": HashHelper.get_password_hash(user_data.password),
+            "password": HashHelper.hash_and_validate(user_data.password, credential_type="password"),
             "tier": UserTier.BASIC
         }
         
@@ -98,7 +100,7 @@ class AuthService(BaseService[User, UserCreate, UserBase]):
                 detail="Invalid credentials"
             )
           
-        if not HashHelper.verify_password(user_data.password, user.password):
+        if not HashHelper.verify_credential(user_data.password, user.password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
@@ -131,3 +133,28 @@ class AuthService(BaseService[User, UserCreate, UserBase]):
             "access_token": new_access_token
         }
         
+
+class AdminAuthService(AuthService):
+    def __init__(self, session: Session):
+        super().__init__(session)
+        self.model = Admin  # Use Admin model instead of User
+
+    def sign_up(self, user_data: Any) -> dict:
+        # Add any admin-specific signup logic here
+        return super().sign_up(user_data)
+
+    def sign_in(self, user_data: Any) -> dict:
+        # Add any admin-specific signin logic here
+        return super().sign_in(user_data)
+
+    def create_new_token(self, request: Any) -> dict:
+        # Add any admin-specific token refresh logic here
+        return super().create_new_token(request)
+
+    def _hash_password(self, password: str) -> str:
+        # You can override password hashing if needed for admin accounts
+        return super()._hash_password(password)
+
+    def _verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        # You can override password verification if needed for admin accounts
+        return super()._verify_password(plain_password, hashed_password)

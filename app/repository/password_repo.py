@@ -60,7 +60,7 @@ class PasswordResetRepository(BaseRepository[PasswordReset, None]):
 
     def reset_password(self, user: User, new_password: str) -> None:
         """Reset user's password"""
-        user.password = HashHelper.get_password_hash(new_password)
+        user.password = HashHelper.hash_and_validate(new_password, credential_type="password")
         user.updated_at = datetime.now(timezone.utc)
         self.session.add(user)
         self.session.commit()

@@ -1,5 +1,5 @@
 from sqlalchemy import TIMESTAMP, Boolean, Column, Integer, String, ForeignKey, DateTime, text
-from datetime import datetime
+from datetime import datetime, timezone
 from app.data.utils.database import Base
 
 
@@ -37,6 +37,6 @@ class PasswordReset(Base):
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text('now()'),
-        onupdate=datetime.utcnow,
+        onupdate=lambda: datetime.now(timezone.utc),
         comment='Last update timestamp'
     )

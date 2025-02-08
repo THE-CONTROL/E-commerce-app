@@ -1,8 +1,6 @@
 from fastapi import HTTPException, status
-from datetime import datetime
 import secrets
 from sqlalchemy.orm import Session
-
 from app.core.config import get_settings
 from app.core.email_service import EmailService
 from app.data.models.user_models import User

@@ -12,6 +12,7 @@ CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
 UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 ServiceType = TypeVar("ServiceType", bound=BaseService)
 
+
 class BaseRouter(Generic[ModelType, CreateSchemaType, UpdateSchemaType, ServiceType]):
     def __init__(
         self,

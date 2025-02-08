@@ -2,7 +2,7 @@ from sqlalchemy import TIMESTAMP, Boolean, Column, Integer, String, text, Enum, 
 from sqlalchemy.orm import relationship
 from app.data.utils.database import Base
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # Enum for currencies
@@ -51,7 +51,7 @@ class Account(Base):
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=text('now()'),
-        onupdate=datetime.utcnow,
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
         comment='Last update timestamp'
     )

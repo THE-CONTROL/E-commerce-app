@@ -1,86 +1,89 @@
 from bcrypt import checkpw, hashpw, gensalt
-from typing import Optional
+from typing import Optional, Literal
 from fastapi import HTTPException, status
 
 class HashConfig:
     # Default number of rounds for bcrypt
-    ROUNDS = 12  # Industry standard, adjust based on your security needs
+    PASSWORD_ROUNDS = 12  # Industry standard for passwords
+    PASSCODE_ROUNDS = 8   # Slightly lower for passcodes due to limited complexity
 
 class HashHelper:
     """
-    Helper class for password hashing and verification
+    Helper class for password and passcode hashing and verification
     """
     
     @staticmethod
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
+    def verify_credential(plain_text: str, hashed_text: str) -> bool:
         """
-        Verify a plain password against a hashed password
+        Verify a plain password or passcode against a hashed value
         
         Args:
-            plain_password: The password in plain text
-            hashed_password: The hashed password to compare against
+            plain_text: The password/passcode in plain text
+            hashed_text: The hashed value to compare against
             
         Returns:
-            bool: True if passwords match, False otherwise
+            bool: True if credentials match, False otherwise
             
         Raises:
             HTTPException: If there's an encoding error or invalid hash format
         """
         try:
             return checkpw(
-                plain_password.encode("utf-8"),
-                hashed_password.encode("utf-8")
+                plain_text.encode("utf-8"),
+                hashed_text.encode("utf-8")
             )
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid password format"
+                detail="Invalid credential format"
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Password verification failed"
+                detail="Credential verification failed"
             )
     
     @staticmethod
-    def get_password_hash(plain_password: str, rounds: Optional[int] = None) -> str:
+    def get_hash(plain_text: str, credential_type: Literal["password", "passcode"]) -> str:
         """
-        Hash a password using bcrypt
+        Hash a password or passcode using bcrypt
         
         Args:
-            plain_password: The password to hash
-            rounds: Optional number of rounds for bcrypt (defaults to HashConfig.ROUNDS)
+            plain_text: The text to hash
+            credential_type: Either "password" or "passcode"
             
         Returns:
-            str: The hashed password
+            str: The hashed value
             
         Raises:
             HTTPException: If there's an encoding error or hashing fails
         """
         try:
-            salt = gensalt(rounds or HashConfig.ROUNDS)
+            rounds = (HashConfig.PASSWORD_ROUNDS if credential_type == "password" 
+                     else HashConfig.PASSCODE_ROUNDS)
+            salt = gensalt(rounds)
             return hashpw(
-                plain_password.encode("utf-8"),
+                plain_text.encode("utf-8"),
                 salt
             ).decode("utf-8")
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid password format"
+                detail=f"Invalid {credential_type} format"
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Password hashing failed"
+                detail=f"{credential_type.capitalize()} hashing failed"
             )
 
     @staticmethod
-    def validate_password_strength(password: str, 
-                                 min_length: int = 8,
-                                 require_upper: bool = True,
-                                 require_lower: bool = True,
-                                 require_digit: bool = True,
-                                 require_special: bool = True) -> bool:
+    def validate_password(password: str, 
+                         min_length: int = 8,
+                         require_upper: bool = True,
+                         require_lower: bool = True,
+                         require_digit: bool = True,
+                         require_special: bool = True) -> bool:
         """
         Validate password strength based on configurable criteria
         
@@ -112,32 +115,55 @@ class HashHelper:
             
         return True
 
-    @classmethod
-    def hash_and_validate(cls, 
-                         password: str,
-                         validate_strength: bool = True,
-                         **validation_options) -> str:
+    @staticmethod
+    def validate_passcode(passcode: str, length: int = 4) -> bool:
         """
-        Validate password strength and hash it in one step
+        Validate a numeric passcode
         
         Args:
-            password: The password to validate and hash
-            validate_strength: Whether to validate password strength
-            **validation_options: Options to pass to validate_password_strength
+            passcode: The passcode to validate
+            length: Required length of the passcode (default 4)
             
         Returns:
-            str: The hashed password
+            bool: True if passcode is valid, False otherwise
+        """
+        return len(passcode) == length and passcode.isdigit()
+
+    @classmethod
+    def hash_and_validate(cls, 
+                         text: str,
+                         credential_type: Literal["password", "passcode"],
+                         validate: bool = True,
+                         **validation_options) -> str:
+        """
+        Validate and hash a password or passcode in one step
+        
+        Args:
+            text: The password or passcode to validate and hash
+            credential_type: Either "password" or "passcode"
+            validate: Whether to validate before hashing
+            **validation_options: Options to pass to respective validation method
+            
+        Returns:
+            str: The hashed value
             
         Raises:
-            HTTPException: If password is too weak or hashing fails
+            HTTPException: If validation fails or hashing fails
         """
-        if validate_strength and not cls.validate_password_strength(
-            password, **validation_options
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password too weak. Must contain uppercase, lowercase, "
-                      "digits, special characters, and be at least 8 characters long."
-            )
+        if validate:
+            if credential_type == "password":
+                if not cls.validate_password(text, **validation_options):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Password too weak. Must contain uppercase, lowercase, "
+                              "digits, special characters, and be at least 8 characters long."
+                    )
+            else:  # passcode
+                if not cls.validate_passcode(text, **validation_options):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid passcode. Must be exactly "
+                              f"{validation_options.get('length', 4)} digits."
+                    )
             
-        return cls.get_password_hash(password)
+        return cls.get_hash(text, credential_type)
