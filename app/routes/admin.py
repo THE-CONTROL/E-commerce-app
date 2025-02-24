@@ -1,6 +1,5 @@
 from fastapi import Depends, HTTPException, status
 from typing import List, Optional
-from app.data.models.user_models import UserTier
 from app.data.schemas.admin_schemas import AdminBase, AdminRead, AdminResponse
 from app.data.schemas.auth_schemas import ProtectedUser
 from app.data.schemas.user_schemas import UserRead, UserResponse
@@ -10,7 +9,6 @@ from app.data.models.admin_models import Admin, AdminType
 from app.routes.base import BaseRouter
 from app.service.admin_service import AdminService
 from sqlalchemy.orm import Session
-from app.core.logging import logger
 
 
 class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
@@ -52,7 +50,6 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
                     data=update_data
                 )
             except Exception as error:
-                logger.error(f"Error updating admin: {str(error)}")
                 raise error
 
         @self.router.put(
@@ -72,7 +69,6 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
                     user=updated_admin
                 )
             except Exception as error:
-                logger.error(f"Error updating admin type: {str(error)}")
                 raise error
 
         @self.router.put(
@@ -91,7 +87,6 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
                     user=deactivated_admin
                 )
             except Exception as error:
-                logger.error(f"Error deactivating admin account: {str(error)}")
                 raise error
 
         @self.router.get("/", response_model=List[AdminRead])
@@ -106,18 +101,14 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
             except HTTPException as http_error:
                 raise http_error
             except Exception as error:
-                logger.error(f"Error deactivating admin account: {str(error)}")
                 raise error
 
         @self.router.get("/users", response_model=List[UserRead],)
         async def list_users(
             skip: int = 0,
             limit: int = 100,
-            tier: Optional[UserTier] = None,
             verified: Optional[bool] = None,
             is_active: Optional[bool] = None,
-            min_age: Optional[int] = None,
-            max_age: Optional[int] = None,
             search: Optional[str] = None,
             db: Session = Depends(get_db),
             current_admin: ProtectedUser = Depends(get_current_user)
@@ -128,14 +119,10 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
             try:
                 filters = {}
                 
-                if tier:
-                    filters['tier'] = tier
                 if verified is not None:
                     filters['verified'] = verified
                 if is_active is not None:
                     filters['is_active'] = is_active
-                if min_age is not None and max_age is not None:
-                    filters['age_range'] = (min_age, max_age)
                     
                 return self.service_class(session=db).list_filtered_users(
                     skip=skip,
@@ -147,7 +134,6 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
             except HTTPException as http_error:
                 raise http_error
             except Exception as error:
-                logger.error(f"Error listing users: {str(error)}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Internal server error"
@@ -160,8 +146,6 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
         async def filter_users(
             skip: int = 0,
             limit: int = 100,
-            nin: Optional[str] = None,
-            bvn: Optional[str] = None,
             email: Optional[str] = None,
             username: Optional[str] = None,
             db: Session = Depends(get_db),
@@ -174,8 +158,6 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
                 filters = {}
                 
                 for field, value in {
-                    'nin': nin,
-                    'bvn': bvn,
                     'email': email,
                     'username': username
                 }.items():
@@ -191,7 +173,6 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
             except HTTPException as http_error:
                 raise http_error
             except Exception as error:
-                logger.error(f"Error filtering users: {str(error)}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Internal server error"
@@ -227,7 +208,6 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
             except HTTPException as http_error:
                 raise http_error
             except Exception as error:
-                logger.error(f"Error in admin_deactivate_user: {str(error)}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Internal server error"
@@ -263,11 +243,10 @@ class AdminRouter(BaseRouter[Admin, AdminBase, AdminBase, AdminService]):
             except HTTPException as http_error:
                 raise http_error
             except Exception as error:
-                logger.error(f"Error in admin_activate_user: {str(error)}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Internal server error"
                 )
-
+                
 # Initialize router
 admin_router = AdminRouter().router

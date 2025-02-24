@@ -1,30 +1,32 @@
-from sqlalchemy import TIMESTAMP, Boolean, Column, Integer, String, ForeignKey, text, Numeric
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from app.data.utils.database import Base
-from datetime import datetime, timezone
 
+
+class Subscription(Base):
+    __tablename__ = 'subscriptions'
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    description = Column(String)
+    duration = Column(String)
+    duration_type = Column(String)
 
 class Store(Base):
-    __tablename__ = "stores"
-    __table_args__ = {'comment': 'Stores information about user stores'}
-
+    __tablename__ = 'stores'
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
-    description = Column(String(500))
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(
-        TIMESTAMP(timezone=True),
-        server_default=text('now()'),
-        nullable=False
-    )
-    updated_at = Column(
-        TIMESTAMP(timezone=True),
-        server_default=text('now()'),
-        onupdate=lambda: datetime.now(timezone.utc),
-        nullable=False
-    )
+    user_id = Column(Integer, ForeignKey('users.id'))
+    name = Column(String)
+    image = Column(String)
+    user = relationship('User')
+    description = Column(String)
+    subscription = relationship('StoreSubscription', uselist=False, back_populates='store')
 
-    # Relationships
-    user = relationship("User", back_populates="stores")
-    products = relationship("Product", back_populates="store", cascade="all, delete-orphan")
+class StoreSubscription(Base):
+    __tablename__ = 'store_subscriptions'
+    id = Column(Integer, primary_key=True, index=True)
+    store_id = Column(Integer, ForeignKey('stores.id'), unique=True, nullable=False)
+    subscription_id = Column(Integer)
+    store = relationship('Store', back_populates='subscription')
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)

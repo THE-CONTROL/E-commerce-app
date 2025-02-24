@@ -2,21 +2,17 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-from app.data.models.user_models import User
-from app.data.models.account_models import Account
-from app.data.models.password_models import PasswordReset
-from app.data.utils.database import Base
 
 from alembic import context
 
-from dotenv import load_dotenv
-import os
-
-# Load environment variables
-load_dotenv()
-
-# Database URL configuration
-POSTGRES_DATABASE_URL: str = os.getenv("POSTGRES_DATABASE_URL")
+from app.data.utils.database import Base
+from app.data.models.account_models import Account, VirtualBankAccount
+from app.data.models.admin_models import Admin
+from app.data.models.password_models import PasswordReset
+from app.data.models.product_models import Product, ProductImage
+from app.data.models.store_models import Store, StoreSubscription, Subscription
+from app.data.models.transaction_models import Transaction
+from app.data.models.user_models import User
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -26,8 +22,6 @@ config = context.config
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-    
-config.set_main_option("sqlalchemy.url", POSTGRES_DATABASE_URL)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

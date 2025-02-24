@@ -1,30 +1,27 @@
-from sqlalchemy import TIMESTAMP, Boolean, Column, Integer, String, ForeignKey, text, Numeric
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Numeric
 from sqlalchemy.orm import relationship
 from app.data.utils.database import Base
-from datetime import datetime, timezone
 
+
+class ProductImage(Base):
+    __tablename__ = 'product_images'
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey('products.id'))
+    product = relationship('Product')
+    url = Column(String)
+    is_primary = Column(Boolean, default=False)
+    order = Column(String, default=0)
 
 class Product(Base):
-    __tablename__ = "products"
-    __table_args__ = {'comment': 'Stores product information'}
-
+    __tablename__ = 'products'
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
-    description = Column(String(500))
-    price = Column(Numeric(10, 2), nullable=False)
-    store_id = Column(Integer, ForeignKey('stores.id'), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(
-        TIMESTAMP(timezone=True),
-        server_default=text('now()'),
-        nullable=False
-    )
-    updated_at = Column(
-        TIMESTAMP(timezone=True),
-        server_default=text('now()'),
-        onupdate=lambda: datetime.now(timezone.utc),
-        nullable=False
-    )
-
-    # Relationships
-    store = relationship("Store", back_populates="products")
+    name = Column(String)
+    description = Column(String)
+    code = Column(String)
+    condition = Column(String)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    user = relationship('User')
+    images = relationship('ProductImage')
+    prices = Column(Numeric)
+    state = Column(String)
+    lga = Column(String)

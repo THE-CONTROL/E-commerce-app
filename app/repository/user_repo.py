@@ -1,8 +1,7 @@
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
-
 from sqlalchemy import and_, or_
-from app.data.models.user_models import User, UserTier
+from app.data.models.user_models import User
 from app.repository.base_repo import BaseRepository
 from app.data.schemas.user_schemas import UserBase
 from sqlalchemy.orm import Session
@@ -24,34 +23,21 @@ class UserRepository(BaseRepository[User, UserBase], ValidationMixin):
 
     def change_password(self, user: User) -> Dict:
         return self.update(user)
-    
-    def set_new_passcode(self, user: User, new_passcode: str) -> Dict:
-        user.passcode = new_passcode
-        user.updated_at = datetime.now(timezone.utc)
-        return self.update(user)
 
     def verify_account(self, user: User) -> Dict:
         """Mark user account as verified"""
-        user.verified = True
-        user.updated_at = datetime.now(timezone.utc)
+        user.is_email_verified = True
+        user.is_phone_verified = True
         return self.update(user)
 
     def deactivate_account(self, user: User) -> Dict:
         """Deactivate user account"""
         user.is_active = False
-        user.updated_at = datetime.now(timezone.utc)
         return self.update(user)
 
     def activate_account(self, user: User) -> Dict:
         """Activate user account"""
         user.is_active = True
-        user.updated_at = datetime.now(timezone.utc)
-        return self.update(user)
-
-    def update_tier(self, user: User, new_tier: UserTier) -> Dict:
-        """Update user subscription tier"""
-        user.tier = new_tier
-        user.updated_at = datetime.now(timezone.utc)
         return self.update(user)
     
     def list_users(
@@ -69,20 +55,6 @@ class UserRepository(BaseRepository[User, UserBase], ValidationMixin):
             filter_conditions = []
                 
             # Handle special filters
-            if 'tier' in filters:
-                if isinstance(filters['tier'], str):
-                    filters['tier'] = UserTier(filters['tier'])
-                query = query.filter(self.model.tier == filters['tier'])
-                del filters['tier']
-                
-            if 'age_range' in filters:
-                min_age, max_age = filters['age_range']
-                query = query.filter(and_(
-                    self.model.age >= min_age,
-                    self.model.age <= max_age
-                ))
-                del filters['age_range']
-            
             if 'verification_status' in filters:
                 query = query.filter(
                     self.model.verified == filters['verification_status']
@@ -90,7 +62,7 @@ class UserRepository(BaseRepository[User, UserBase], ValidationMixin):
                 del filters['verification_status']
                 
             # Handle exact matches for specific fields
-            for field in ['nin', 'bvn', 'email']:
+            for field in ['email']:
                 if field in filters:
                     filter_conditions.append(
                         getattr(self.model, field) == filters[field]
@@ -134,9 +106,6 @@ class UserRepository(BaseRepository[User, UserBase], ValidationMixin):
                     self.model.email.ilike(search_term),
                     self.model.first_name.ilike(search_term),
                     self.model.last_name.ilike(search_term),
-                    self.model.address.ilike(search_term),
-                    self.model.nin.ilike(search_term),
-                    self.model.bvn.ilike(search_term)
                 )
             )\
             .order_by(self.model.id.asc())\
@@ -150,7 +119,7 @@ class UserRepository(BaseRepository[User, UserBase], ValidationMixin):
         """
         try:
             user.is_active = is_active
-            user.updated_at = datetime.now(timezone.utc)
+
             # Could add audit fields here if needed:
             # user.last_modified_by = admin_id
             

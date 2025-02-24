@@ -80,3 +80,26 @@ class EmailService:
             template_data=template_data,
             body=""  # Will be overwritten by template
         )
+        
+    async def send_otp_email(
+        self,
+        email: str,
+        username: str,
+        otp: str
+    ) -> None:
+        """Send otp email"""
+        subject = "Two Factor Authentication One Time Password"
+        template_data = {
+            "username": username,
+            "otp": otp,
+            "app_name": self.config.APP_NAME,
+            "support_email": self.config.MAIL_FROM
+        }
+        
+        await self.send_email(
+            subject=subject,
+            recipients=[email],
+            template_name="otp.html",
+            template_data=template_data,
+            body=""  # Will be overwritten by template
+        )

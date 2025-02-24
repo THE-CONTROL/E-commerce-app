@@ -1,75 +1,143 @@
+# app/service/account_service.py
+from datetime import datetime
+from typing import Dict
+from decimal import Decimal
 from fastapi import HTTPException, status
-from typing import List
 from sqlalchemy.orm import Session
-from app.service.base_service import BaseService
-from app.data.models.account_models import Account, Currency
-from app.data.schemas.account_schemas import (
-    AccountCreate, AccountRead, AccountResponse,
-    UpdateAccountBalance
-)
 from app.repository.account_repo import AccountRepository
+from app.repository.transaction_repo import TransactionRepository
+from app.service.budpay_service import BudpayService
+from app.data.models.transaction_models import TransactionType, TransactionStatus
 
-
-class AccountService(BaseService[Account, AccountCreate, AccountRead]):
+class AccountService:
     def __init__(self, session: Session):
-        super().__init__(repository=AccountRepository(session=session))
-        self._repository: AccountRepository = self._repository
+        self.session = session
+        self.account_repo = AccountRepository(session)
+        self.transaction_repo = TransactionRepository(session)
+        self.budpay_service = BudpayService()
 
-    def get_user_accounts(self, user_id: int) -> List[AccountRead]:
-        """Get all accounts for a user"""
-        accounts = self._repository.get_user_accounts(user_id)
-        return [AccountRead.model_validate(account) for account in accounts]
-
-    def get_account_by_number(self, account_number: str, user_id: int) -> AccountRead:
-        """Get account by account number"""
-        account = self._repository.get_account_by_number(account_number)
-        if not account:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Account not found"
+    async def create_account_with_virtual(
+        self,
+        user_id: int,
+        account_type: str,
+        profile_data: dict
+    ) -> dict:
+        """Create account with Budpay virtual account"""
+        try:
+            # Create Budpay virtual account
+            budpay_account = await self.budpay_service.create_virtual_account(
+                email=profile_data["email"],
+                first_name=profile_data["first_name"],
+                last_name=profile_data["last_name"],
+                phone=profile_data["phone"]
             )
             
-        # Verify account ownership
-        if account.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access to this account is forbidden"
+            # Create accounts
+            account_data = {
+                "user_id": user_id,
+                "type": account_type,
+                "key": self._generate_unique_account_key(user_id)
+            }
+            
+            virtual_account_data = {
+                "account_number": budpay_account["account_number"],
+                "account_name": budpay_account["account_name"],
+                "bank_name": budpay_account["bank_name"],
+                "bank_code": budpay_account["bank_code"],
+                "email": profile_data["email"],
+                "phone": profile_data["phone"],
+                "reference": budpay_account["reference"]
+            }
+            
+            account, virtual_account = self.account_repo.create_with_virtual_account(
+                account_data,
+                virtual_account_data
             )
-        return AccountRead.model_validate(account)
+            
+            return {
+                "account": account,
+                "virtual_account": virtual_account,
+                "budpay_details": budpay_account
+            }
+            
+        except Exception as e:
+            self.session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
+            )
 
-    def get_user_account_by_currency(self, user_id: int, currency: Currency) -> AccountRead:
-        """Get user's account by currency"""
-        account = self._repository.get_user_account_by_currency(user_id, currency)
-        if not account:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Account not found"
-            )
-        return AccountRead.model_validate(account)
-
-    def update_balance(
-        self, account_number: str, update_data: UpdateAccountBalance
-    ) -> AccountResponse:
-        """Update account balance based on transaction type"""
-        account = self._repository.get_account_by_number(account_number)
-        if not account:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Account not found"
-            )
+    def _generate_unique_account_key(self, user_id: int) -> str:
+        """Generate unique account key"""
+        import uuid
+        from datetime import datetime
         
-        if not account.is_active:
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        random_str = uuid.uuid4().hex[:6].upper()
+        user_part = str(user_id).zfill(6)
+        
+        return f"ACC-{timestamp}-{user_part}-{random_str}"
+
+    async def process_webhook(
+        self,
+        signature: str,
+        payload: bytes,
+        body: Dict
+    ) -> Dict:
+        """Process Budpay webhook for virtual account transactions"""
+        if not self.budpay_service.verify_webhook_signature(signature, payload):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot update balance of inactive account"
+                detail="Invalid webhook signature"
             )
-
+            
         try:
-            result = self._repository.update_balance(account, update_data)
-            return AccountResponse(
-                message=f"Successfully processed {update_data.transaction_type} transaction",
-                account=AccountRead.model_validate(result)
-            )
+            # Get account from virtual account number
+            virtual_account_number = body.get("account", {}).get("account_number")
+            if not virtual_account_number:
+                raise ValueError("Missing account number")
+                
+            account = self.account_repo.get_by_virtual_account(virtual_account_number)
+            if not account:
+                raise ValueError("Account not found")
+                
+            amount = Decimal(str(body.get("amount", 0)))
+            if amount <= 0:
+                raise ValueError("Invalid amount")
+                
+            reference = body.get("reference")
+            if not reference:
+                raise ValueError("Missing reference")
+                
+            # Check if transaction already processed
+            existing_transaction = self.transaction_repo.get_by_reference(reference)
+            if existing_transaction:
+                return {
+                    "status": "success",
+                    "message": "Transaction already processed",
+                    "data": existing_transaction
+                }
+                
+            # Create transaction
+            transaction = self.transaction_repo.create_transaction({
+                "type": TransactionType.CREDIT,
+                "amount": amount,
+                "description": "Virtual Account Credit",
+                "status": TransactionStatus.COMPLETED,
+                "reference": reference,
+                "account_id": account.id,
+                "completed_at": datetime.utcnow()
+            })
+            
+            # Update account balance
+            self.account_repo.credit_account(account, amount)
+            
+            return {
+                "status": "success",
+                "message": "Payment processed successfully",
+                "data": transaction
+            }
+            
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

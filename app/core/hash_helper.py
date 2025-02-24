@@ -1,5 +1,5 @@
 from bcrypt import checkpw, hashpw, gensalt
-from typing import Optional, Literal
+from typing import Literal
 from fastapi import HTTPException, status
 
 class HashConfig:

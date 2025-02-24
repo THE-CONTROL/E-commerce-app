@@ -2,11 +2,10 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
 from app.data.models.admin_models import AdminType
-from app.data.schemas.user_schemas import UsernameStr
 
 
 class AdminBase(BaseModel):
-    username: Optional[UsernameStr] = None
+    username: Optional[str] = None
     email: Optional[EmailStr] = None
     
     class Config:
