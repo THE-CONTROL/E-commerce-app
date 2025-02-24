@@ -99,6 +99,7 @@ class AuthHandler:
                 detail="Invalid token"
             )
         except Exception as e:
+            print(e)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token validation failed"

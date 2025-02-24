@@ -43,8 +43,13 @@ class StoreService(BaseService[Store, StoreCreate, StoreUpdate]):
                 )
 
             # Get subscription plan
-            subscription_plan = SUBSCRIPTION_PLANS.get(store_data.subscription_id)
+            subscription_plan = next(
+                (plan for plan in SUBSCRIPTION_PLANS.values() if plan["id"] == store_data.subscription_id),
+                None
+            )
             if not subscription_plan:
+                print(store_data.subscription_id)
+                print(SUBSCRIPTION_PLANS)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid subscription plan"

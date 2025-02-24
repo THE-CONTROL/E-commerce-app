@@ -1,4 +1,3 @@
-# app/data/models/account_models.py
 from sqlalchemy import Column, Integer, String, Numeric, Boolean, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -9,6 +8,10 @@ class AccountType(str, enum.Enum):
     USER = "user"
     STORE = "store"
     PLATFORM = "platform"
+
+    @classmethod
+    def list(cls) -> list[str]:
+        return [member.value for member in cls]
 
 class Account(Base):
     __tablename__ = "accounts"
@@ -28,9 +31,13 @@ class Account(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = relationship("User", back_populates="accounts")
     virtual_accounts = relationship("VirtualBankAccount", back_populates="account")
     transactions = relationship("Transaction", back_populates="account")
+
+    @property
+    def active_virtual_account(self):
+        """Get the active virtual account for this account"""
+        return next((va for va in self.virtual_accounts if va.is_active), None)
 
 class VirtualBankAccount(Base):
     __tablename__ = "virtual_bank_accounts"

@@ -1,9 +1,11 @@
-# app/repository/account_repo.py
 from sqlalchemy.orm import Session
-from typing import Optional, Tuple
+from sqlalchemy.exc import SQLAlchemyError
+from typing import Optional, Tuple, List
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import and_
+from fastapi import HTTPException, status
+
 from app.data.models.account_models import Account, VirtualBankAccount, AccountType
 
 class AccountRepository:
@@ -15,60 +17,64 @@ class AccountRepository:
         account_data: dict, 
         virtual_account_data: dict
     ) -> Tuple[Account, VirtualBankAccount]:
-        """Create both main account and virtual account"""
+        """
+        Create both main account and virtual account.
+        Enforces one account per user rule.
+        """
         try:
-            self.session.begin_nested()
-            
-            # Create main account
-            account = Account(**account_data)
-            self.session.add(account)
-            self.session.flush()  # Get the account ID
-            
-            # Add account_id to virtual account data
-            virtual_account_data['account_id'] = account.id
-            virtual_account_data['user_id'] = account_data['user_id']
-            
-            # Create virtual account
-            virtual_account = VirtualBankAccount(**virtual_account_data)
-            self.session.add(virtual_account)
-            
+            # Check if user already has an account
+            existing_account = self.get_user_account(account_data['user_id'])
+            if existing_account:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="User already has an account"
+                )
+
+            # Use nested transaction for atomicity
+            with self.session.begin_nested():
+                # Create main account
+                account = Account(**account_data)
+                self.session.add(account)
+                self.session.flush()
+                
+                # Add account_id to virtual account data
+                virtual_account_data['account_id'] = account.id
+                virtual_account_data['user_id'] = account_data['user_id']
+                
+                # Create virtual account
+                virtual_account = VirtualBankAccount(**virtual_account_data)
+                self.session.add(virtual_account)
+                
+            # Commit the transaction
             self.session.commit()
             return account, virtual_account
             
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}"
+            )
         except Exception as e:
             self.session.rollback()
             raise e
 
     def get_user_account(self, user_id: int) -> Optional[Account]:
-        """Get user's primary account"""
+        """Get user's account - each user can only have one account"""
         return self.session.query(Account).filter(
-            Account.user_id == user_id,
-            Account.type == 'user'
-        ).first()
-
-    def get_by_id(self, account_id: int) -> Optional[Account]:
-        """Get account by ID"""
-        return self.session.query(Account).get(account_id)
-
-    def get_by_type(self, account_type: AccountType) -> Optional[Account]:
-        """Get account by type"""
-        return self.session.query(Account).filter(
-            Account.type == account_type
-        ).first()
-
-    def get_virtual_account(self, account_id: int) -> Optional[VirtualBankAccount]:
-        """Get active virtual account for main account"""
-        return self.session.query(VirtualBankAccount).filter(
             and_(
-                VirtualBankAccount.account_id == account_id,
-                VirtualBankAccount.is_active == True
+                Account.user_id == user_id,
+                Account.type == AccountType.USER
             )
         ).first()
 
     def get_by_virtual_account(self, account_number: str) -> Optional[Account]:
         """Get main account by virtual account number"""
         virtual_account = self.session.query(VirtualBankAccount).filter(
-            VirtualBankAccount.account_number == account_number
+            and_(
+                VirtualBankAccount.account_number == account_number,
+                VirtualBankAccount.is_active == True
+            )
         ).first()
         
         if virtual_account:
@@ -79,25 +85,49 @@ class AccountRepository:
         """Add money to account balance"""
         try:
             if not self.can_credit(account):
-                raise ValueError("Account cannot be credited")
-            account.balance += amount
-            account.updated_at = datetime.utcnow()
-            self.session.add(account)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Account cannot be credited"
+                )
+                
+            with self.session.begin_nested():
+                account.balance += amount
+                account.updated_at = datetime.utcnow()
+                self.session.add(account)
+                
+            self.session.commit()
             return account
-        except Exception as e:
-            raise e
+            
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}"
+            )
 
     def debit_account(self, account: Account, amount: Decimal) -> Account:
         """Remove money from account balance"""
         try:
             if not self.can_debit(account, amount):
-                raise ValueError("Account cannot be debited")
-            account.balance -= amount
-            account.updated_at = datetime.utcnow()
-            self.session.add(account)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Account cannot be debited"
+                )
+                
+            with self.session.begin_nested():
+                account.balance -= amount
+                account.updated_at = datetime.utcnow()
+                self.session.add(account)
+                
+            self.session.commit()
             return account
-        except Exception as e:
-            raise e
+            
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}"
+            )
 
     def can_debit(self, account: Account, amount: Decimal) -> bool:
         """Check if account can be debited"""
